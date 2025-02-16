@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Siamotyrannus Choke Minigame</title>
+  <style>
+    body {
+      background-color: #fff;
+      color: #333;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .container {
+      width: 100%;
+      max-width: 600px;
+      padding: 20px;
+      box-sizing: border-box;
+      text-align: center;
+    }
+    h1 {
+      margin-bottom: 20px;
+    }
+    .instructions {
+      margin-bottom: 20px;
+      font-size: 1.2em;
+    }
+    .control-panel {
+      margin-bottom: 20px;
+    }
+    .control-panel select,
+    .control-panel button {
+      font-size: 1em;
+      padding: 10px;
+      margin: 5px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background-color: #f9f9f9;
+      cursor: pointer;
+    }
+    .control-panel button:hover {
+      background-color: #e0e0e0;
+    }
+    .scoreboard,
+    .round,
+    .role,
+    .difficultyDisplay,
+    .reaction {
+      font-size: 1.2em;
+      margin: 10px 0;
+    }
+    #result {
+      font-size: 1.5em;
+      margin-top: 20px;
+    }
+    /* Fixed prompt container at bottom */
+    .prompt-container {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background-color: #f5f5f5;
+      padding: 20px;
+      box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+      text-align: center;
+      transition: background-color 0.2s ease;
+    }
+    .prompt {
+      font-size: 3em;
+      font-weight: bold;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Siamotyrannus Choke Minigame</h1>
+    <div class="instructions">
+      Press the displayed key as quickly as possible (W, A, S, or D)!
+    </div>
+    <div class="control-panel">
+      <div class="difficultyDisplay">
+        Difficulty:
+        <select id="difficultySelect">
+          <option value="easy">Easy</option>
+          <option value="medium" selected>Medium</option>
+          <option value="hard">Hard</option>
+          <option value="insane">Insane</option>
+        </select>
+      </div>
+      <button id="startButton">Start Game</button>
+      <button id="switchButton">Switch Role</button>
+    </div>
+    <div class="scoreboard" id="scoreboard">Attacker: 0 | Prey: 0</div>
+    <div class="round" id="round">Round: 0 / 50</div>
+    <div class="reaction" id="reaction">Reaction Time: -- ms</div>
+    <div class="role" id="roleDisplay">Current Role: Attacker</div>
+    <div id="result"></div>
+  </div>
+  
+  <!-- Prompt displayed at the bottom -->
+  <div class="prompt-container">
+    <p class="prompt" id="prompt">-</p>
+  </div>
+
+  <script>
+    const promptDiv = document.getElementById("prompt");
+    const promptContainer = document.querySelector(".prompt-container");
+    const scoreboardDiv = document.getElementById("scoreboard");
+    const roundDiv = document.getElementById("round");
+    const reactionDiv = document.getElementById("reaction");
+    const roleDisplay = document.getElementById("roleDisplay");
+    const resultDiv = document.getElementById("result");
+    const startButton = document.getElementById("startButton");
+    const switchButton = document.getElementById("switchButton");
+    const difficultySelect = document.getElementById("difficultySelect");
+
+    let currentRole = "attacker"; // "attacker" or "prey"
+    let attackerScore = 0;
+    let preyScore = 0;
+    let currentRound = 0;
+    const totalRounds = 50;
+    let currentKey = "";
+    let roundTimeout;
+
+    // Default difficulty parameters (medium)
+    let reactionTime = 1500;
+    let reactionDecrement = 20;
+    let minReactionTime = 1000;
+
+    // Difficulty settings
+    const difficultySettings = {
+      easy: {
+        reactionTime: 2000,
+        reactionDecrement: 10,
+        minReactionTime: 1500
+      },
+      medium: {
+        reactionTime: 1500,
+        reactionDecrement: 20,
+        minReactionTime: 1000
+      },
+      hard: {
+        reactionTime: 1000,
+        reactionDecrement: 30,
+        minReactionTime: 600
+      },
+      insane: {
+        reactionTime: 800,
+        reactionDecrement: 40,
+        minReactionTime: 400
+      }
+    };
+
+    const keys = ['W', 'A', 'S', 'D'];
+
+    function updateRoleDisplay() {
+      roleDisplay.textContent = `Current Role: ${currentRole.charAt(0).toUpperCase() + currentRole.slice(1)}`;
+    }
+
+    function updateScoreboard() {
+      scoreboardDiv.textContent = `Attacker: ${attackerScore} | Prey: ${preyScore}`;
+    }
+
+    function setDifficultyParameters() {
+      const difficulty = difficultySelect.value;
+      const settings = difficultySettings[difficulty];
+      reactionTime = settings.reactionTime;
+      reactionDecrement = settings.reactionDecrement;
+      minReactionTime = settings.minReactionTime;
+      reactionDiv.textContent = `Reaction Time: ${reactionTime} ms`;
+    }
+
+    function flashPrompt(color) {
+      promptContainer.style.backgroundColor = color;
+      setTimeout(() => {
+        promptContainer.style.backgroundColor = "#f5f5f5";
+      }, 300);
+    }
+
+    function startGame() {
+      setDifficultyParameters();
+      // Initialize scores based on role
+      if (currentRole === "attacker") {
+        attackerScore = 0;
+        preyScore = 2; // Prey starts with a 2-point advantage when you're attacker
+      } else {
+        attackerScore = 2; // Attacker starts with a 2-point advantage when you're prey
+        preyScore = 0;
+      }
+      currentRound = 0;
+      updateScoreboard();
+      roundDiv.textContent = `Round: ${currentRound} / ${totalRounds}`;
+      resultDiv.textContent = "";
+      startButton.style.display = "none";
+      switchButton.style.display = "none";
+      nextRound();
+    }
+
+    function nextRound() {
+      if (currentRound >= totalRounds) {
+        endGame();
+        return;
+      }
+      currentRound++;
+      roundDiv.textContent = `Round: ${currentRound} / ${totalRounds}`;
+      reactionDiv.textContent = `Reaction Time: ${reactionTime} ms`;
+      
+      // Pick a random key from W, A, S, D
+      currentKey = keys[Math.floor(Math.random() * keys.length)];
+      promptDiv.textContent = currentKey;
+      
+      // Set a timer based on the current reaction time for the player to respond
+      roundTimeout = setTimeout(() => {
+        // If time runs out, award point to the opposite side based on role
+        if(currentRole === "attacker"){
+          preyScore++;
+        } else {
+          attackerScore++;
+        }
+        updateScoreboard();
+        promptDiv.textContent = "-";
+        // Decrease reaction time for the next round
+        reactionTime = Math.max(minReactionTime, reactionTime - reactionDecrement);
+        nextRound();
+      }, reactionTime);
+    }
+
+    function endGame() {
+      promptDiv.textContent = "-";
+      let message = "";
+      if(currentRole === "attacker"){
+        message = attackerScore > preyScore ? "Choke Successful!" : "Target Escaped!";
+      } else {
+        message = preyScore > attackerScore ? "You Escaped!" : "Caught by the Attacker!";
+      }
+      resultDiv.textContent = message;
+      startButton.textContent = "Restart Game";
+      startButton.style.display = "inline-block";
+      switchButton.style.display = "inline-block";
+    }
+
+    document.addEventListener("keydown", function(e) {
+      // Only process input if a key is currently prompted
+      if (promptDiv.textContent === "-" || currentRound > totalRounds) return;
+      
+      const pressedKey = e.key.toUpperCase();
+      
+      if (pressedKey === currentKey) {
+        flashPrompt("lightgreen");
+        clearTimeout(roundTimeout);
+        if(currentRole === "attacker"){
+          attackerScore++;
+        } else {
+          preyScore++;
+        }
+        updateScoreboard();
+        promptDiv.textContent = "✔";
+        reactionTime = Math.max(minReactionTime, reactionTime - reactionDecrement);
+        nextRound();
+      } else if (keys.includes(pressedKey)) {
+        // Wrong key pressed – flash red
+        flashPrompt("lightcoral");
+      }
+    });
+
+    // Start game when start button is clicked
+    startButton.addEventListener("click", startGame);
+
+    // Allow switching roles only when no game is in progress (i.e. when start button is visible)
+    switchButton.addEventListener("click", function() {
+      if(startButton.style.display !== "none"){
+        currentRole = (currentRole === "attacker") ? "prey" : "attacker";
+        updateRoleDisplay();
+      } else {
+        alert("Finish the current game before switching roles!");
+      }
+    });
+
+    // Initialize the role display on page load
+    updateRoleDisplay();
+  </script>
+</body>
+</html>
