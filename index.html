@@ -49,7 +49,8 @@
     .round,
     .role,
     .difficultyDisplay,
-    .reaction {
+    .reaction,
+    .userReaction {
       font-size: 1.2em;
       margin: 10px 0;
     }
@@ -98,6 +99,7 @@
     <div class="scoreboard" id="scoreboard">Attacker: 0 | Prey: 0</div>
     <div class="round" id="round">Round: 0 / 50</div>
     <div class="reaction" id="reaction">Reaction Time: -- ms</div>
+    <div class="userReaction" id="userReaction">Your Reaction: --</div>
     <div class="role" id="roleDisplay">Current Role: Attacker</div>
     <div id="result"></div>
   </div>
@@ -113,6 +115,7 @@
     const scoreboardDiv = document.getElementById("scoreboard");
     const roundDiv = document.getElementById("round");
     const reactionDiv = document.getElementById("reaction");
+    const userReactionDiv = document.getElementById("userReaction");
     const roleDisplay = document.getElementById("roleDisplay");
     const resultDiv = document.getElementById("result");
     const startButton = document.getElementById("startButton");
@@ -126,6 +129,7 @@
     const totalRounds = 50;
     let currentKey = "";
     let roundTimeout;
+    let promptStartTime = 0;  // To record when prompt is shown
 
     // Default difficulty parameters (medium)
     let reactionTime = 1500;
@@ -196,6 +200,7 @@
       updateScoreboard();
       roundDiv.textContent = `Round: ${currentRound} / ${totalRounds}`;
       resultDiv.textContent = "";
+      userReactionDiv.textContent = "Your Reaction: --";
       startButton.style.display = "none";
       switchButton.style.display = "none";
       nextRound();
@@ -213,9 +218,13 @@
       // Pick a random key from W, A, S, D
       currentKey = keys[Math.floor(Math.random() * keys.length)];
       promptDiv.textContent = currentKey;
+      // Record the time when the prompt is shown
+      promptStartTime = Date.now();
       
       // Set a timer based on the current reaction time for the player to respond
       roundTimeout = setTimeout(() => {
+        // Time expired – record timeout in user reaction display
+        userReactionDiv.textContent = "Your Reaction: Timeout";
         // If time runs out, award point to the opposite side based on role
         if(currentRole === "attacker"){
           preyScore++;
@@ -245,12 +254,15 @@
     }
 
     document.addEventListener("keydown", function(e) {
-      // Only process input if a key is currently prompted
+      // Process input only if a key is currently prompted
       if (promptDiv.textContent === "-" || currentRound > totalRounds) return;
       
       const pressedKey = e.key.toUpperCase();
       
       if (pressedKey === currentKey) {
+        // Measure the user's reaction time
+        const userReactionTime = Date.now() - promptStartTime;
+        userReactionDiv.textContent = `Your Reaction: ${userReactionTime} ms`;
         flashPrompt("lightgreen");
         clearTimeout(roundTimeout);
         if(currentRole === "attacker"){
@@ -263,7 +275,6 @@
         reactionTime = Math.max(minReactionTime, reactionTime - reactionDecrement);
         nextRound();
       } else if (keys.includes(pressedKey)) {
-        // Wrong key pressed – flash red
         flashPrompt("lightcoral");
       }
     });
